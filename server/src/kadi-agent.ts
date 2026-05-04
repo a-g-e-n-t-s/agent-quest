@@ -91,6 +91,12 @@ export async function loadAbilityLog(): Promise<void> {
   try {
     abilityLog = await client.loadNative('ability-log');
     console.log('[agent-quest] ability-log loaded for persistent storage');
+
+    // Warm up: first invoke has ~60s cold-start penalty (lazy init in loadNative client).
+    // Fire a dummy query so user requests don't hit the cold path.
+    abilityLog.invoke('log_query', { limit: 1 }).then(() => {
+      console.log('[agent-quest] ability-log warmed up (first query complete)');
+    }).catch(() => {});
   } catch (err: any) {
     console.warn(`[agent-quest] ability-log not available: ${err.message}`);
     console.warn('[agent-quest] Event/log persistence will be disabled');

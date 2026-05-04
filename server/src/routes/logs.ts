@@ -297,7 +297,7 @@ logRoutes.get('/:agentId/logs', async (req: Request, res: Response) => {
       if (level) params.level = level;
       const result = await Promise.race([
         abilityLog.invoke('log_query', params),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('ArcadeDB query timeout (5s)')), 5000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('ArcadeDB query timeout (15s)')), 15000)),
       ]);
       const data = typeof result === 'string' ? JSON.parse(result) : result;
       const entries: any[] = (data as any).entries ?? [];
