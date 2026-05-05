@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kadi.build/core": "latest",
+    "agent-quest": "file:..",
     "agents-library": "latest",
     "cors": "^2.8.5",
     "express": "^5.0.1",

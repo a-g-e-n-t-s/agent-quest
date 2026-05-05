@@ -13,6 +13,7 @@ import { logRoutes, startLogCapture } from './routes/logs.js';
 import { containerRoutes } from './routes/containers.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { eventRoutes } from './routes/events.js';
+import { snapshotRoutes } from './routes/snapshots.js';
 import { QuestAgentClient, cfg, client, loadAbilityLog } from './kadi-agent.js';
 import { setupBrokerEventBridge } from './broker-events.js';
 
@@ -95,6 +96,7 @@ app.use('/api/containers', containerRoutes);
 app.use('/api/observer', observerRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/snapshots', snapshotRoutes);
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {

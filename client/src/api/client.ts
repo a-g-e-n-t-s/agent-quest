@@ -330,6 +330,29 @@ export class ApiClient {
   }
 
   // -------------------------------------------------------------------------
+  // Snapshot endpoints (for diff viewing)
+  // -------------------------------------------------------------------------
+
+  async captureSnapshot(entityType: 'quest' | 'task', entityId: string, content: Record<string, string>): Promise<void> {
+    await this.fetchWithTimeout(`${API_BASE}/snapshots/${entityType}/${entityId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async getSnapshots(entityType: 'quest' | 'task', entityId: string): Promise<{ count: number; data: Array<{ id: string; timestamp: string; fields: string[] }> }> {
+    const response = await this.fetchWithTimeout(`${API_BASE}/snapshots/${entityType}/${entityId}`);
+    return this.parseJSON(response);
+  }
+
+  async getDiff(entityType: 'quest' | 'task', entityId: string, field?: string): Promise<{ success: boolean; data: any }> {
+    const qs = field ? `?field=${encodeURIComponent(field)}` : '';
+    const response = await this.fetchWithTimeout(`${API_BASE}/snapshots/${entityType}/${entityId}/diff${qs}`);
+    return this.parseJSON(response);
+  }
+
+  // -------------------------------------------------------------------------
   // Health
   // -------------------------------------------------------------------------
 
