@@ -5,8 +5,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { RichMarkdown } from '../components/RichMarkdown';
+import { TextAnnotator, type Annotation, type ViewMode } from '../components/TextAnnotator';
 import { apiClient } from '../api/client';
 import { useWebSocket, useWsEvent } from '../hooks/useWebSocket';
 import { ApprovalPanel } from '../components/ApprovalPanel';
@@ -167,6 +167,12 @@ export function QuestDetailPage() {
   const [quest, setQuest] = useState<Quest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annotationMode, setAnnotationMode] = useState(false);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('annotate');
+  const [showDiff, setShowDiff] = useState(false);
+  const [diffData, setDiffData] = useState<Record<string, string>>({});
+  const [snapshotCount, setSnapshotCount] = useState(0);
 
   /**
    * Load quest details
@@ -192,6 +198,55 @@ export function QuestDetailPage() {
   useEffect(() => {
     loadQuest();
   }, [questId]);
+
+  // Capture snapshot and check for existing ones when quest is pending_approval
+  useEffect(() => {
+    if (!quest || !questId) return;
+
+    // Always check snapshot count for "View Changes" button visibility
+    apiClient.getSnapshots('quest', questId).then(res => {
+      setSnapshotCount(res.count);
+
+      // Only capture a new snapshot if this is a fresh pending_approval cycle
+      if (quest.status === 'pending_approval') {
+        const content: Record<string, string> = {};
+        if (quest.requirements) content.requirements = quest.requirements;
+        if (quest.design) content.design = quest.design;
+        if (Object.keys(content).length === 0) return;
+
+        if (res.count === 0) {
+          apiClient.captureSnapshot('quest', questId, content).then(() => {
+            setSnapshotCount(prev => prev + 1);
+          }).catch(() => {});
+        } else {
+          const lastTimestamp = res.data[res.data.length - 1]?.timestamp;
+          if (lastTimestamp) {
+            const age = Date.now() - new Date(lastTimestamp).getTime();
+            if (age > 60000) {
+              apiClient.captureSnapshot('quest', questId, content).then(() => {
+                setSnapshotCount(prev => prev + 1);
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      // Fetch previous content for diff view (if 2+ snapshots exist)
+      if (res.count >= 2) {
+        apiClient.getDiff('quest', questId).then(diffRes => {
+          if (diffRes.data?.diffs) {
+            const prev: Record<string, string> = {};
+            for (const d of diffRes.data.diffs) {
+              prev[d.field] = d.oldText;
+            }
+            setDiffData(prev);
+          }
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, [quest?.status, questId]);
+
+  const handleViewChanges = async () => {}; // kept for compatibility, diff is now in tabs
 
   // WebSocket connection
   useWebSocket();
@@ -310,6 +365,8 @@ export function QuestDetailPage() {
           <div className="mb-6">
             <ApprovalPanel
               entityType="quest"
+              annotations={annotations}
+              onAnnotationModeChange={setAnnotationMode}
               onSubmit={async (decision, feedback) => {
                 switch (decision) {
                   case 'approved':
@@ -322,6 +379,8 @@ export function QuestDetailPage() {
                     await apiClient.rejectQuest(quest.questId, feedback!);
                     break;
                 }
+                setAnnotationMode(false);
+                setAnnotations([]);
                 loadQuest();
               }}
             />
@@ -331,21 +390,39 @@ export function QuestDetailPage() {
         {/* Requirements Section */}
         <div className="bg-bg-card rounded-xl border border-border mb-8 p-8">
           <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-5">Requirements</h2>
-          <div className="prose max-w-none overflow-auto max-h-96">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {annotationMode && quest.requirements ? (
+            <TextAnnotator
+              content={quest.requirements}
+              annotations={annotations.filter(a => a.id.startsWith('req_'))}
+              onAnnotationsChange={(anns) => setAnnotations(prev => [...prev.filter(a => !a.id.startsWith('req_')), ...anns.map(a => ({ ...a, id: a.id.startsWith('req_') ? a.id : `req_${a.id}` }))])}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              previousContent={diffData.requirements}
+            />
+          ) : (
+            <RichMarkdown maxHeight="24rem" showSourceToggle>
               {quest.requirements}
-            </ReactMarkdown>
-          </div>
+            </RichMarkdown>
+          )}
         </div>
 
         {/* Design Section */}
         <div className="bg-bg-card rounded-xl border border-border mb-8 p-8">
           <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-5">Design</h2>
-          <div className="prose max-w-none overflow-auto max-h-96">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {annotationMode && quest.design ? (
+            <TextAnnotator
+              content={quest.design}
+              annotations={annotations.filter(a => a.id.startsWith('des_'))}
+              onAnnotationsChange={(anns) => setAnnotations(prev => [...prev.filter(a => !a.id.startsWith('des_')), ...anns.map(a => ({ ...a, id: a.id.startsWith('des_') ? a.id : `des_${a.id}` }))])}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              previousContent={diffData.design}
+            />
+          ) : (
+            <RichMarkdown maxHeight="24rem" showSourceToggle>
               {quest.design}
-            </ReactMarkdown>
-          </div>
+            </RichMarkdown>
+          )}
         </div>
 
         {/* Tasks Section */}

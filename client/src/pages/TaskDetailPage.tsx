@@ -5,8 +5,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { RichMarkdown } from '../components/RichMarkdown';
+import { TextAnnotator, type Annotation, type ViewMode } from '../components/TextAnnotator';
 import { apiClient } from '../api/client';
 import { useWebSocket, useWsEvent } from '../hooks/useWebSocket';
 import { ApprovalPanel } from '../components/ApprovalPanel';
@@ -102,6 +102,9 @@ export function TaskDetailPage() {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annotationMode, setAnnotationMode] = useState(false);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('annotate');
 
   /**
    * Load task details
@@ -249,20 +252,36 @@ export function TaskDetailPage() {
         {/* Description Section */}
         <div className="bg-bg-card rounded-xl border border-border mb-8 p-8">
           <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-5">Description</h2>
-          <div className="prose max-w-none">
-            <p className="text-sm font-light leading-relaxed text-text-secondary whitespace-pre-wrap">{task.description}</p>
-          </div>
+          {annotationMode ? (
+            <TextAnnotator
+              content={task.description}
+              annotations={annotations.filter(a => a.id.startsWith('desc_'))}
+              onAnnotationsChange={(anns) => setAnnotations(prev => [...prev.filter(a => !a.id.startsWith('desc_')), ...anns.map(a => ({ ...a, id: a.id.startsWith('desc_') ? a.id : `desc_${a.id}` }))])}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          ) : (
+            <RichMarkdown>{task.description}</RichMarkdown>
+          )}
         </div>
 
         {/* Implementation Guide Section */}
         {task.implementationGuide && (
           <div className="bg-bg-card rounded-xl border border-border mb-8 p-8">
             <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-5">Implementation Guide</h2>
-            <div className="prose max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {annotationMode ? (
+              <TextAnnotator
+                content={task.implementationGuide}
+                annotations={annotations.filter(a => a.id.startsWith('impl_'))}
+                onAnnotationsChange={(anns) => setAnnotations(prev => [...prev.filter(a => !a.id.startsWith('impl_')), ...anns.map(a => ({ ...a, id: a.id.startsWith('impl_') ? a.id : `impl_${a.id}` }))])}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+            ) : (
+              <RichMarkdown showSourceToggle>
                 {task.implementationGuide}
-              </ReactMarkdown>
-            </div>
+              </RichMarkdown>
+            )}
           </div>
         )}
 
@@ -270,9 +289,17 @@ export function TaskDetailPage() {
         {task.verificationCriteria && (
           <div className="bg-bg-card rounded-xl border border-border mb-8 p-8">
             <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-5">Verification Criteria</h2>
-            <div className="prose max-w-none">
-              <p className="text-sm font-light leading-relaxed text-text-secondary whitespace-pre-wrap">{task.verificationCriteria}</p>
-            </div>
+            {annotationMode ? (
+              <TextAnnotator
+                content={task.verificationCriteria}
+                annotations={annotations.filter(a => a.id.startsWith('ver_'))}
+                onAnnotationsChange={(anns) => setAnnotations(prev => [...prev.filter(a => !a.id.startsWith('ver_')), ...anns.map(a => ({ ...a, id: a.id.startsWith('ver_') ? a.id : `ver_${a.id}` }))])}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+            ) : (
+              <RichMarkdown>{task.verificationCriteria}</RichMarkdown>
+            )}
           </div>
         )}
 
@@ -335,6 +362,8 @@ export function TaskDetailPage() {
           <div className="mb-6">
             <ApprovalPanel
               entityType="task"
+              annotations={annotations}
+              onAnnotationModeChange={setAnnotationMode}
               onSubmit={async (decision, feedback) => {
                 switch (decision) {
                   case 'approved':
@@ -347,7 +376,8 @@ export function TaskDetailPage() {
                     await apiClient.rejectTask(task.id, feedback!);
                     break;
                 }
-                // Reload task after decision
+                setAnnotationMode(false);
+                setAnnotations([]);
                 loadTask();
               }}
             />
