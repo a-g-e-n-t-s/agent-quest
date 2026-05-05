@@ -2,11 +2,13 @@
  * ApprovalPanel — Reusable approval/revision/rejection panel.
  * Used in both QuestDetailPage (quest-level) and TaskDetailPage (task-level).
  *
- * Renders inline approve/revise/reject buttons with an expandable
- * comment textarea. Includes confirmation dialog for destructive actions.
+ * When "Request Revision" is selected, the parent page switches content
+ * sections to annotation mode via the onAnnotationModeChange callback.
+ * Annotations are compiled into structured feedback on submit.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { Annotation } from './TextAnnotator';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,12 +17,13 @@ import { useState } from 'react';
 type ApprovalDecision = 'approved' | 'revision_requested' | 'rejected';
 
 interface ApprovalPanelProps {
-  /** Entity type label shown in UI text */
   entityType: 'quest' | 'task';
-  /** Callback to execute the decision. Receives decision + optional feedback. */
   onSubmit: (decision: ApprovalDecision, feedback?: string) => Promise<void>;
-  /** Optional: hide the panel (e.g., when status is not pending_approval) */
   hidden?: boolean;
+  /** Annotations from TextAnnotator (when in revision mode) */
+  annotations?: Annotation[];
+  /** Callback to toggle annotation mode on parent page */
+  onAnnotationModeChange?: (enabled: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -50,12 +53,12 @@ const DECISION_CONFIG: Record<
   },
   revision_requested: {
     label: 'Request Revision',
-    description: 'Needs changes before it can be approved',
+    description: 'Needs changes — annotate the content to provide feedback',
     buttonClass: 'bg-yellow text-black hover:bg-yellow/80',
     radioClass: 'text-yellow focus:ring-yellow',
     feedbackRequired: true,
     feedbackLabel: 'Revision Feedback',
-    feedbackPlaceholder: 'Provide detailed feedback on what needs to be changed...',
+    feedbackPlaceholder: 'Use the annotation tools above to select text and add comments, or type general feedback here...',
   },
   rejected: {
     label: 'Reject',
@@ -69,10 +72,43 @@ const DECISION_CONFIG: Record<
 };
 
 // ---------------------------------------------------------------------------
+// Compile annotations into structured feedback string
+// ---------------------------------------------------------------------------
+
+function compileAnnotationFeedback(annotations: Annotation[], manualFeedback: string): string {
+  const parts: string[] = [];
+
+  const selectionComments = annotations.filter(a => a.type === 'selection' && a.selectedText);
+  const generalComments = annotations.filter(a => a.type === 'general');
+
+  if (selectionComments.length > 0) {
+    parts.push('## Text Annotations\n');
+    for (const ann of selectionComments) {
+      parts.push(`> "${ann.selectedText}"\n`);
+      parts.push(`${ann.comment}\n`);
+    }
+  }
+
+  if (generalComments.length > 0) {
+    parts.push('## General Comments\n');
+    for (const ann of generalComments) {
+      parts.push(`- ${ann.comment}`);
+    }
+  }
+
+  if (manualFeedback.trim()) {
+    if (parts.length > 0) parts.push('\n## Additional Notes\n');
+    parts.push(manualFeedback.trim());
+  }
+
+  return parts.join('\n').trim();
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelProps) {
+export function ApprovalPanel({ entityType, onSubmit, hidden, annotations = [], onAnnotationModeChange }: ApprovalPanelProps) {
   const [decision, setDecision] = useState<ApprovalDecision>('approved');
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,9 +116,15 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
+  // Notify parent when annotation mode should be enabled/disabled
+  useEffect(() => {
+    onAnnotationModeChange?.(decision === 'revision_requested');
+  }, [decision, onAnnotationModeChange]);
+
   if (hidden) return null;
 
   const config = DECISION_CONFIG[decision];
+  const hasAnnotations = annotations.length > 0;
 
   // -----------------------------------------------------------------------
   // Handlers
@@ -90,7 +132,13 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
 
   const validate = (): boolean => {
     setValidationError(null);
-    if (config.feedbackRequired && !feedback.trim()) {
+    if (decision === 'revision_requested') {
+      // For revisions: either annotations or manual feedback required
+      if (!hasAnnotations && !feedback.trim()) {
+        setValidationError('Add text annotations or type feedback to explain what needs to change');
+        return false;
+      }
+    } else if (config.feedbackRequired && !feedback.trim()) {
       setValidationError(`${config.feedbackLabel} is required`);
       return false;
     }
@@ -100,7 +148,6 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    // Confirmation gate for rejection
     if (decision === 'rejected' && !showRejectConfirm) {
       setShowRejectConfirm(true);
       return;
@@ -109,7 +156,15 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
     try {
       setLoading(true);
       setError(null);
-      await onSubmit(decision, feedback.trim() || undefined);
+
+      let finalFeedback: string | undefined;
+      if (decision === 'revision_requested') {
+        finalFeedback = compileAnnotationFeedback(annotations, feedback);
+      } else {
+        finalFeedback = feedback.trim() || undefined;
+      }
+
+      await onSubmit(decision, finalFeedback);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit decision');
       setShowRejectConfirm(false);
@@ -195,7 +250,9 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
             return (
               <label
                 key={key}
-                className="flex items-center p-4 border-2 border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-elevated"
+                className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-bg-elevated ${
+                  decision === key ? 'border-blue bg-blue/5' : 'border-border'
+                }`}
               >
                 <input
                   type="radio"
@@ -219,12 +276,35 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
         </div>
       </div>
 
+      {/* Annotation mode indicator */}
+      {decision === 'revision_requested' && (
+        <div className="mb-6 p-4 bg-yellow/10 border border-yellow/30 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-4 h-4 text-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            <span className="text-sm font-medium text-yellow">Annotation Mode Active</span>
+          </div>
+          <p className="text-xs text-text-secondary">
+            Select text in the content sections above to add annotations.
+            {hasAnnotations && (
+              <span className="ml-1 text-yellow font-medium">
+                {annotations.length} annotation{annotations.length !== 1 ? 's' : ''} added.
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Feedback textarea */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-text-secondary mb-2">
           {config.feedbackLabel}
-          {config.feedbackRequired && (
+          {config.feedbackRequired && !hasAnnotations && (
             <span className="text-red"> *</span>
+          )}
+          {decision === 'revision_requested' && hasAnnotations && (
+            <span className="text-text-tertiary text-xs ml-2">(optional — annotations will be included)</span>
           )}
         </label>
         <textarea
@@ -234,7 +314,7 @@ export function ApprovalPanel({ entityType, onSubmit, hidden }: ApprovalPanelPro
             setValidationError(null);
           }}
           placeholder={config.feedbackPlaceholder}
-          rows={config.feedbackRequired ? 6 : 3}
+          rows={decision === 'revision_requested' ? 3 : config.feedbackRequired ? 6 : 3}
           className={`w-full px-4 py-3 bg-bg-input border rounded-lg focus:outline-none focus:ring-2 resize-none text-text-primary placeholder-text-tertiary ${
             validationError
               ? 'border-red focus:ring-red'
