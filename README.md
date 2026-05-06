@@ -131,7 +131,18 @@ High-level data flow and key components:
 - Build and Deployment:
   - The build section in agent.json defines a reproducible container build based on node:20-alpine.
   - Build steps install workspace deps, install the kadi-secret helper, copy a secret ability into /app/abilities, build client and server, prune devDependencies for server, and remove client/node_modules to reduce image size.
-  - agent.json also contains a deploy configuration for Akash (deploy.akash) that specifies an image name (agent-quest:0.3.10), the container command used on Akash (runs kadi secret receive --vault observer --vault arcadedb to fetch vault secrets then starts the agent), exposed port 8888, environment variables (e.g., ARCADE_HOST, ARCADE_PORT), resource/pricing settings, and secret vault mappings.
+  - agent.json also contains a deploy configuration for Akash (deploy.akash). The Akash config includes:
+    - target: "akash" and network: "mainnet"
+    - deposit: "10" and a blacklist of Akash addresses (to avoid scheduling on those nodes)
+    - engine: "podman"
+    - services.app:
+      - image: "agent-quest:0.3.10"
+      - command: ["sh", "-c", "kadi secret receive --vault observer --vault arcadedb && kadi run start"]
+      - expose: port 8888 (mapped as 8888, global)
+      - env: ["NODE_ENV=production", "ARCADE_HOST=arcadedb.dadavidtseng.com", "ARCADE_PORT=443"]
+      - resources: cpu 0.5, memory "512Mi", ephemeralStorage "1Gi"
+      - pricing: amount "500", denom "uact"
+    - secrets: vault mappings for "observer" (OBSERVER_PASSWORD) and "arcadedb" (ARCADE_USERNAME, ARCADE_PASSWORD), with delivery set to "broker"
 
 Data flow summary:
 1. Kadi platform launches the agent image on an orchestrated node.
@@ -197,7 +208,13 @@ Build/CI specifics
     - npm prune --omit=dev --prefix server
     - rm -rf client/node_modules
   - NODE_ENV=production is set during the build.
-- The Akash deployment config (deploy.akash) in agent.json demonstrates how to run the built image in a cloud environment: the service command pulls secrets from configured vaults using `kadi secret receive --vault observer --vault arcadedb` and then starts the agent with `kadi run start`; the service exposes port 8888 and injects ARCADE-related environment variables as shown in the manifest.
+- The Akash deployment config (deploy.akash) in agent.json demonstrates how to run the built image in a cloud environment:
+  - The service command pulls secrets from configured vaults using:
+    kadi secret receive --vault observer --vault arcadedb
+    and then starts the agent with:
+    kadi run start
+  - The manifest config also includes scheduling controls (blacklist), uses the podman engine, sets resource requests (cpu/memory/ephemeralStorage), and pricing (amount/denom).
+  - Secret vault mappings and delivery are declared under deploy.akash.secrets (vaults: observer and arcadedb, delivery: "broker").
 
 Notes and tips
 - Keep agent.json and config.toml in sync with any changes to the broker URL, networks, or build steps.
@@ -233,12 +250,4 @@ URL = "wss://broker.dadavidtseng.com/kadi"
 NETWORKS = ["quest", "global"]
 
 [secrets]
-VAULTS = ["observer", "arcadedb"]
-KEYS = ["OBSERVER_PASSWORD", "ARCADE_USERNAME", "ARCADE_PASSWORD"]
-
-[arcadedb]
-HOST = "arcadedb.dadavidtseng.com"
-PORT = 443
-USERNAME = "root"
-DATABASE = "agents_logs"
-```
+VAULTS = ["observer", "arcaded
