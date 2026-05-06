@@ -131,7 +131,7 @@ High-level data flow and key components:
 - Build and Deployment:
   - The build section in agent.json defines a reproducible container build based on node:20-alpine.
   - Build steps install workspace deps, install the kadi-secret helper, copy a secret ability into /app/abilities, build client and server, prune devDependencies for server, and remove client/node_modules to reduce image size.
-  - agent.json also contains a deploy configuration for Akash (deploy.akash) that specifies an image name (agent-quest:0.3.10), the container command used on Akash (runs kadi secret receive to fetch vault secrets then starts the agent), exposed port 8888, environment variables (e.g., ARCADE_HOST, ARCADE_PORT), resource/pricing settings, and secret vault mappings (observer, arcadedb).
+  - agent.json also contains a deploy configuration for Akash (deploy.akash) that specifies an image name (agent-quest:0.3.10), the container command used on Akash (runs kadi secret receive --vault observer --vault arcadedb to fetch vault secrets then starts the agent), exposed port 8888, environment variables (e.g., ARCADE_HOST, ARCADE_PORT), resource/pricing settings, and secret vault mappings.
 
 Data flow summary:
 1. Kadi platform launches the agent image on an orchestrated node.
@@ -197,7 +197,7 @@ Build/CI specifics
     - npm prune --omit=dev --prefix server
     - rm -rf client/node_modules
   - NODE_ENV=production is set during the build.
-- The Akash deployment config (deploy.akash) in agent.json demonstrates how to run the built image in a cloud environment: the service command pulls secrets from configured vaults using kadi secret receive and then starts the agent with kadi run start; the service exposes port 8888 and injects ARCADE-related environment variables as shown in the manifest.
+- The Akash deployment config (deploy.akash) in agent.json demonstrates how to run the built image in a cloud environment: the service command pulls secrets from configured vaults using `kadi secret receive --vault observer --vault arcadedb` and then starts the agent with `kadi run start`; the service exposes port 8888 and injects ARCADE-related environment variables as shown in the manifest.
 
 Notes and tips
 - Keep agent.json and config.toml in sync with any changes to the broker URL, networks, or build steps.
@@ -209,6 +209,7 @@ Configuration examples (config.toml)
 -----------------------------------
 A runtime example is provided in config.toml (root). Key values shown in the repository include:
 
+```toml
 # Agent Quest Configuration
 # Secrets go in secrets.toml (gitignored)
 
@@ -220,4 +221,24 @@ VERSION = "0.3.7"
 PORT = 8888
 CORS_ORIGINS = "http://localhost:5173,https://quest.dadavidtseng.com"
 
-[
+[logging]
+LEVEL = "debug"
+
+#[broker.local]
+#URL = "ws://localhost:8080/kadi"
+#NETWORKS = ["quest", "global"]
+
+[broker.remote]
+URL = "wss://broker.dadavidtseng.com/kadi"
+NETWORKS = ["quest", "global"]
+
+[secrets]
+VAULTS = ["observer", "arcadedb"]
+KEYS = ["OBSERVER_PASSWORD", "ARCADE_USERNAME", "ARCADE_PASSWORD"]
+
+[arcadedb]
+HOST = "arcadedb.dadavidtseng.com"
+PORT = 443
+USERNAME = "root"
+DATABASE = "agents_logs"
+```
