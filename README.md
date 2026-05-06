@@ -3,7 +3,7 @@
 
 Overview
 --------
-agent-quest is a Kadi agent packaged project. The agent manifest is agent.json (type: "agent") and the package is currently at version 0.3.10. The runtime entrypoint for the packaged server is dist/index.js and the repository contains a client (Vite) and a server (TypeScript) portion. The agent expects to connect to the broker URL configured in agent.json (brokers.remote: wss://broker.dadavidtseng.com/kadi) and participates on the networks listed (["quest","global"]). The manifest also declares abilities (secret-ability, ability-log) and includes an Akash deployment configuration.
+agent-quest is a Kadi agent packaged project. The agent manifest is agent.json (type: "agent") and the package is currently at version 0.3.11. The runtime entrypoint for the packaged server is dist/index.js and the repository contains a client (Vite) and a server (TypeScript) portion. The agent expects to connect to the broker URL configured in agent.json (brokers.remote: wss://broker.dadavidtseng.com/kadi) and participates on the networks listed (["quest","global"]). The manifest also declares abilities (secret-ability, ability-log) and includes an Akash deployment configuration.
 
 Quick Start
 -----------
@@ -64,7 +64,7 @@ Tools
 | tsx | TypeScript runtime used to run server in dev mode (server dev: tsx watch src/index.ts). |
 | tsc | TypeScript compiler (used in build steps and type-check script). |
 | kadi | AGENTS / Kadi CLI used to install and run the agent on the orchestration platform (kadi install, kadi run start). |
-| kadi-secret | Installed/used during the build pipeline (agent.json build steps run kadi install kadi-secret). |
+| kadi-secret / ability-log | Installed/used during the build pipeline (agent.json build steps run kadi install kadi-secret and kadi install ability-log). |
 
 Configuration
 -------------
@@ -72,7 +72,7 @@ Primary configuration lives in agent.json at the project root. Key fields used b
 
 - name: "agent-quest" — agent identifier
 - type: "agent"
-- version: "0.3.10"
+- version: "0.3.11"
 - entrypoint: "dist/index.js" — packaged entrypoint for the server
 - scripts: npm script shortcuts used for development and CI. Important scripts:
   - preflight — verifies node_modules exists
@@ -88,6 +88,7 @@ Primary configuration lives in agent.json at the project root. Key fields used b
   - run: (commands executed during image build)
     - NODE_ENV=development npm run install:all
     - kadi install kadi-secret
+    - kadi install ability-log
     - mkdir -p /app/abilities && cp -a /opt/kadi/abilities/secret-ability@* /app/abilities/
     - npm run build
     - npm prune --omit=dev --prefix server
@@ -98,8 +99,8 @@ Primary configuration lives in agent.json at the project root. Key fields used b
 - networks:
   - ["quest", "global"]
 - abilities:
-  - secret-ability: "*" 
-  - ability-log: "^0.1.2"
+  - secret-ability: "^0.9.5"
+  - ability-log: "*"
 
 Files and paths of interest:
 - agent.json (root) — agent manifest and configuration
@@ -130,13 +131,13 @@ High-level data flow and key components:
 
 - Build and Deployment:
   - The build section in agent.json defines a reproducible container build based on node:20-alpine.
-  - Build steps install workspace deps, install the kadi-secret helper, copy a secret ability into /app/abilities, build client and server, prune devDependencies for server, and remove client/node_modules to reduce image size.
+  - Build steps install workspace deps, install the kadi-secret helper and ability-log ability, copy a secret ability into /app/abilities, build client and server, prune devDependencies for server, and remove client/node_modules to reduce image size.
   - agent.json also contains a deploy configuration for Akash (deploy.akash). The Akash config includes:
     - target: "akash" and network: "mainnet"
     - deposit: "10" and a blacklist of Akash addresses (to avoid scheduling on those nodes)
     - engine: "podman"
     - services.app:
-      - image: "agent-quest:0.3.10"
+      - image: "agent-quest:0.3.11"
       - command: ["sh", "-c", "kadi secret receive --vault observer --vault arcadedb && kadi run start"]
       - expose: port 8888 (mapped as 8888, global)
       - env: ["NODE_ENV=production", "ARCADE_HOST=arcadedb.dadavidtseng.com", "ARCADE_PORT=443"]
@@ -203,6 +204,7 @@ Build/CI specifics
   - run:
     - NODE_ENV=development npm run install:all
     - kadi install kadi-secret
+    - kadi install ability-log
     - mkdir -p /app/abilities && cp -a /opt/kadi/abilities/secret-ability@* /app/abilities/
     - npm run build
     - npm prune --omit=dev --prefix server
@@ -250,4 +252,14 @@ URL = "wss://broker.dadavidtseng.com/kadi"
 NETWORKS = ["quest", "global"]
 
 [secrets]
-VAULTS = ["observer", "arcaded
+VAULTS = ["observer", "arcadedb"]
+KEYS = ["OBSERVER_PASSWORD", "ARCADE_USERNAME", "ARCADE_PASSWORD"]
+
+[arcadedb]
+HOST = "arcadedb.dadavidtseng.com"
+PORT = 443
+USERNAME = "root"
+DATABASE = "agents_logs"
+```
+
+---
