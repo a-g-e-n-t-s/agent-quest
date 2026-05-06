@@ -1,7 +1,7 @@
 {
   "name": "agent-quest",
   "type": "agent",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "entrypoint": "dist/index.js",
   "scripts": {
     "preflight": "node -e \"const fs=require('fs');if(!fs.existsSync('node_modules')){console.error('Dependencies not installed. Run: npm install');process.exit(1)}console.log('✓ Dependencies OK')\"",
@@ -25,6 +25,7 @@
       "run": [
         "NODE_ENV=development npm run install:all",
         "kadi install kadi-secret",
+        "kadi install ability-log",
         "mkdir -p /app/abilities && cp -a /opt/kadi/abilities/secret-ability@* /app/abilities/",
         "npm run build",
         "npm prune --omit=dev --prefix server",
@@ -47,7 +48,7 @@
       "engine": "podman",
       "services": {
         "app": {
-          "image": "agent-quest:0.3.10",
+          "image": "agent-quest:0.3.11",
           "command": [
             "sh",
             "-c",
@@ -108,7 +109,7 @@
     "global"
   ],
   "abilities": {
-    "secret-ability": "*",
-    "ability-log": "^0.1.2"
+    "secret-ability": "^0.9.5",
+    "ability-log": "*"
   }
 }

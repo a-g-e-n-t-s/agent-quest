@@ -1,6 +1,6 @@
 {
   "name": "agent-quest",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "KĀDI Agent for Quest Dashboard - React frontend with Express backend for quest/task management via KĀDI broker",
   "private": true,
   "type": "module",
@@ -17,7 +17,9 @@
     "test": "npm run test --prefix client && npm run test --prefix server"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=20.0.0"
