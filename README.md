@@ -209,63 +209,15 @@ Configuration examples (config.toml)
 -----------------------------------
 A runtime example is provided in config.toml (root). Key values shown in the repository include:
 
+# Agent Quest Configuration
+# Secrets go in secrets.toml (gitignored)
+
+[agent]
+ID = "agent-quest"
+VERSION = "0.3.7"
+
 [server]
 PORT = 8888
 CORS_ORIGINS = "http://localhost:5173,https://quest.dadavidtseng.com"
 
-[logging]
-LEVEL = "debug"
-
-[broker.remote]
-URL = "wss://broker.dadavidtseng.com/kadi"
-NETWORKS = ["quest", "global"]
-
-[secrets]
-VAULTS = ["observer", "arcadedb"]
-KEYS = ["OBSERVER_PASSWORD", "ARCADE_USERNAME", "ARCADE_PASSWORD"]
-
-[arcadedb]
-HOST = "arcadedb.dadavidtseng.com"
-PORT = 443
-USERNAME = "root"
-DATABASE = "agents_logs"
-
-License and contact
--------------------
-Refer to the repository root for license and maintainer contact information. If you need to integrate with a specific Kadi broker endpoint, update the broker URL in agent.json (brokers.remote) or config.toml before running kadi install.
-
-## Quick Start
-
-```bash
-cd agent-quest
-npm install
-kadi install
-kadi run start
-```
-
-## Tools
-
-| Tool | Purpose |
-| ---- | ------- |
-| concurrently | Run client and server dev processes in parallel (used by npm run dev). |
-| Vite | Client dev server and build tool (client/). |
-| tsx | Fast TypeScript runtime for server dev watch (server/). |
-| tsc | TypeScript compiler (build/type-check). |
-| kadi | CLI for registering and running the agent on the platform. |
-| kadi-secret | Helper installed during build to manage secret vaults (used in build.run and deploy command). |
-
-## Configuration
-
-### agent.json
-
-| Field | Value |
-|-------|-------|
-| **Version** | 0.3.10 |
-| **Type** | agent |
-| **Entrypoint** | dist/index.js |
-
-### Brokers
-
-- **remote**: `wss://broker.dadavidtseng.com/kadi`
-
-##
+[
