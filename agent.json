@@ -1,7 +1,7 @@
 {
   "name": "agent-quest",
   "type": "agent",
-  "version": "0.3.12",
+  "version": "0.4.0",
   "entrypoint": "dist/index.js",
   "scripts": {
     "preflight": "node -e \"const fs=require('fs');if(!fs.existsSync('node_modules')){console.error('Dependencies not installed. Run: npm install');process.exit(1)}console.log('✓ Dependencies OK')\"",
@@ -48,7 +48,7 @@
       "engine": "podman",
       "services": {
         "app": {
-          "image": "agent-quest:0.3.12",
+          "image": "agent-quest:0.4.0",
           "command": [
             "sh",
             "-c",
@@ -110,6 +110,6 @@
   ],
   "abilities": {
     "secret-ability": "^0.9.5",
-    "ability-log": "*"
+    "ability-log": "^0.1.7"
   }
 }
