@@ -3,7 +3,7 @@
 
 Overview
 --------
-agent-quest is a Kadi agent packaged project. The agent manifest is agent.json (type: "agent") and the package is currently at version 0.3.12. The runtime entrypoint for the packaged server is dist/index.js and the repository contains a client (Vite) and a server (TypeScript) portion. The agent expects to connect to the broker URL configured in agent.json (brokers.remote: wss://broker.dadavidtseng.com/kadi) and participates on the networks listed (["quest","global"]). The manifest also declares abilities (secret-ability, ability-log) and includes an Akash deployment configuration.
+agent-quest is a Kadi agent packaged project. The agent manifest is agent.json (type: "agent") and the package is currently at version 0.4.0. The runtime entrypoint for the packaged server is dist/index.js and the repository contains a client (Vite) and a server (TypeScript) portion. The agent expects to connect to the broker URL configured in agent.json (brokers.remote: wss://broker.dadavidtseng.com/kadi) and participates on the networks listed (["quest","global"]). The manifest also declares abilities (secret-ability, ability-log) and includes an Akash deployment configuration.
 
 Quick Start
 -----------
@@ -72,7 +72,7 @@ Primary configuration lives in agent.json at the project root. Key fields used b
 
 - name: "agent-quest" — agent identifier
 - type: "agent"
-- version: "0.3.12"
+- version: "0.4.0"
 - entrypoint: "dist/index.js" — packaged entrypoint for the server
 - scripts: npm script shortcuts used for development and CI. Important scripts:
   - preflight — verifies node_modules exists
@@ -100,7 +100,7 @@ Primary configuration lives in agent.json at the project root. Key fields used b
   - ["quest", "global"]
 - abilities:
   - secret-ability: "^0.9.5"
-  - ability-log: "*"
+  - ability-log: "^0.1.7"
 
 Files and paths of interest:
 - agent.json (root) — agent manifest and configuration
@@ -137,7 +137,7 @@ High-level data flow and key components:
     - deposit: "10" and a blacklist of Akash addresses (to avoid scheduling on those nodes)
     - engine: "podman"
     - services.app:
-      - image: "agent-quest:0.3.12"
+      - image: "agent-quest:0.4.0"
       - command: ["sh", "-c", "kadi secret receive --vault observer --vault arcadedb && kadi run start"]
       - expose: port 8888 (mapped as 8888, global)
       - env: ["NODE_ENV=production", "ARCADE_HOST=arcadedb.dadavidtseng.com", "ARCADE_PORT=443"]
@@ -253,13 +253,4 @@ NETWORKS = ["quest", "global"]
 
 [secrets]
 VAULTS = ["observer", "arcadedb"]
-KEYS = ["OBSERVER_PASSWORD", "ARCADE_USERNAME", "ARCADE_PASSWORD"]
-
-[arcadedb]
-HOST = "arcadedb.dadavidtseng.com"
-PORT = 443
-USERNAME = "root"
-DATABASE = "agents_logs"
-```
-
----
+KEYS =
