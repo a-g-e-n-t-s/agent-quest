@@ -37,11 +37,11 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 // Constants
 // ---------------------------------------------------------------------------
 
-const KIND_META: Record<NodeKind, { shape: string; hue: number; label: string }> = {
-  agent:        { shape: 'circle',       hue: 210, label: 'Agent' },
-  'mcp-client': { shape: 'rounded-rect', hue: 160, label: 'MCP Client' },
-  'mcp-server': { shape: 'diamond',      hue: 30,  label: 'MCP Server' },
-  network:      { shape: 'hexagon',      hue: 270, label: 'Network' },
+const KIND_META: Record<NodeKind, { shape: string; gradient: [string, string]; glow: string; label: string }> = {
+  agent:        { shape: 'circle',       gradient: ['#007cf0', '#00dfd8'], glow: 'rgba(0, 124, 240, 0.4)', label: 'Agent' },
+  'mcp-client': { shape: 'rounded-rect', gradient: ['#00dfd8', '#22c55e'], glow: 'rgba(0, 223, 216, 0.4)', label: 'MCP Client' },
+  'mcp-server': { shape: 'diamond',      gradient: ['#f97316', '#eab308'], glow: 'rgba(249, 115, 22, 0.4)', label: 'MCP Server' },
+  network:      { shape: 'hexagon',      gradient: ['#7928ca', '#ff0080'], glow: 'rgba(121, 40, 202, 0.4)', label: 'Network' },
 };
 
 // ---------------------------------------------------------------------------
@@ -303,7 +303,7 @@ export function NetworkGraph({ agents, networks, className = '' }: NetworkGraphP
               <line
                 key={link.id}
                 x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-                stroke={isSelected ? 'rgba(96,165,250,0.7)' : isHovered ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}
+                stroke={isSelected ? 'rgba(0, 124, 240, 0.6)' : isHovered ? 'rgba(0, 124, 240, 0.3)' : 'rgba(255,255,255,0.06)'}
                 strokeWidth={isSelected ? 2.5 : isHovered ? 2 : 1}
                 className="transition-all duration-200"
               />
@@ -317,8 +317,6 @@ export function NetworkGraph({ agents, networks, className = '' }: NetworkGraphP
             const isSelected = selectedNode?.id === node.id;
             const isActive = node.status === 'active';
             const meta = KIND_META[node.kind];
-            // All nodes of the same kind share the same hue for visual consistency.
-            const hue = meta.hue;
 
             return (
               <g
@@ -336,7 +334,7 @@ export function NetworkGraph({ agents, networks, className = '' }: NetworkGraphP
               >
                 <NodeShape
                   kind={node.kind}
-                  hue={hue}
+                  meta={meta}
                   isActive={isActive}
                   isHovered={isHovered}
                   isSelected={isSelected}
@@ -398,63 +396,83 @@ export function NetworkGraph({ agents, networks, className = '' }: NetworkGraphP
 // ---------------------------------------------------------------------------
 
 function NodeShape({
-  kind, hue, isActive, isHovered, isSelected,
+  kind, meta, isActive, isHovered, isSelected,
 }: {
-  kind: NodeKind; hue: number; isActive: boolean; isHovered: boolean; isSelected: boolean;
+  kind: NodeKind; meta: typeof KIND_META[NodeKind]; isActive: boolean; isHovered: boolean; isSelected: boolean;
 }) {
-  const fill = isActive ? `hsla(${hue}, 45%, 25%, 0.7)` : 'rgba(255,255,255,0.05)';
-  const stroke = isSelected
-    ? `hsla(${hue}, 70%, 60%, 0.9)`
-    : isActive ? `hsla(${hue}, 55%, 50%, 0.5)` : 'rgba(255,255,255,0.1)';
+  const gradId = `grad-${kind}`;
+  const [c1, c2] = meta.gradient;
+  const opacity = isActive ? 0.85 : 0.4;
+  const stroke = isSelected ? '#ffffff' : isHovered ? c1 : `${c1}88`;
   const sw = isSelected ? 2.5 : isHovered ? 2 : 1;
+  const filter = (isHovered || isSelected) && isActive ? `drop-shadow(0 0 8px ${meta.glow})` : undefined;
+
+  const gradientDef = (
+    <defs>
+      <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor={c1} stopOpacity={opacity} />
+        <stop offset="100%" stopColor={c2} stopOpacity={opacity} />
+      </linearGradient>
+    </defs>
+  );
 
   switch (kind) {
     case 'network':
       return (
-        <polygon
-          points={hexPoints(isHovered ? 36 : 32)}
-          fill={fill} stroke={stroke} strokeWidth={sw}
-          className="transition-all duration-200"
-        />
+        <g style={{ filter }}>
+          {gradientDef}
+          <polygon
+            points={hexPoints(isHovered ? 36 : 32)}
+            fill={`url(#${gradId})`} stroke={stroke} strokeWidth={sw}
+            className="transition-all duration-200"
+          />
+        </g>
       );
 
     case 'mcp-client':
       return (
-        <rect
-          x={isHovered ? -36 : -32} y={isHovered ? -20 : -17}
-          width={isHovered ? 72 : 64} height={isHovered ? 40 : 34}
-          rx={6} fill={fill} stroke={stroke} strokeWidth={sw}
-          className="transition-all duration-200"
-        />
+        <g style={{ filter }}>
+          {gradientDef}
+          <rect
+            x={isHovered ? -36 : -32} y={isHovered ? -20 : -17}
+            width={isHovered ? 72 : 64} height={isHovered ? 40 : 34}
+            rx={6} fill={`url(#${gradId})`} stroke={stroke} strokeWidth={sw}
+            className="transition-all duration-200"
+          />
+        </g>
       );
 
     case 'mcp-server':
       return (
-        <polygon
-          points={diamondPoints(isHovered ? 32 : 28)}
-          fill={fill} stroke={stroke} strokeWidth={sw}
-          className="transition-all duration-200"
-        />
+        <g style={{ filter }}>
+          {gradientDef}
+          <polygon
+            points={diamondPoints(isHovered ? 32 : 28)}
+            fill={`url(#${gradId})`} stroke={stroke} strokeWidth={sw}
+            className="transition-all duration-200"
+          />
+        </g>
       );
 
     default: // agent
       return (
-        <>
+        <g style={{ filter }}>
+          {gradientDef}
           <circle
             r={isHovered ? 28 : 24}
-            fill={fill} stroke={stroke} strokeWidth={sw}
+            fill={`url(#${gradId})`} stroke={stroke} strokeWidth={sw}
             className="transition-all duration-200"
           />
           {isActive && (
             <circle
               r={24} fill="none"
-              stroke={`hsla(${hue}, 55%, 50%, 0.3)`}
+              stroke={`${c1}55`}
               strokeWidth={1}
               className="animate-ping"
               style={{ animationDuration: '3s' }}
             />
           )}
-        </>
+        </g>
       );
   }
 }
@@ -472,7 +490,7 @@ function Legend({ kinds }: { kinds: NodeKind[] }) {
         const meta = KIND_META[kind];
         return (
           <div key={kind} className="flex items-center gap-2 text-[0.65rem] text-text-secondary">
-            <LegendIcon kind={kind} hue={meta.hue} />
+            <LegendIcon kind={kind} />
             <span>{meta.label}</span>
           </div>
         );
@@ -481,17 +499,24 @@ function Legend({ kinds }: { kinds: NodeKind[] }) {
   );
 }
 
-function LegendIcon({ kind, hue }: { kind: NodeKind; hue: number }) {
-  const fill = `hsla(${hue}, 45%, 35%, 0.7)`;
-  const stroke = `hsla(${hue}, 55%, 50%, 0.6)`;
+function LegendIcon({ kind }: { kind: NodeKind }) {
+  const meta = KIND_META[kind];
+  const [c1, c2] = meta.gradient;
+  const gradId = `legend-grad-${kind}`;
   const size = 14;
 
   return (
     <svg width={size} height={size} viewBox="-8 -8 16 16">
-      {kind === 'network' && <polygon points={hexPoints(7)} fill={fill} stroke={stroke} strokeWidth={1} />}
-      {kind === 'mcp-client' && <rect x={-7} y={-5} width={14} height={10} rx={2} fill={fill} stroke={stroke} strokeWidth={1} />}
-      {kind === 'mcp-server' && <polygon points={diamondPoints(7)} fill={fill} stroke={stroke} strokeWidth={1} />}
-      {kind === 'agent' && <circle r={6} fill={fill} stroke={stroke} strokeWidth={1} />}
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={c1} stopOpacity={0.85} />
+          <stop offset="100%" stopColor={c2} stopOpacity={0.85} />
+        </linearGradient>
+      </defs>
+      {kind === 'network' && <polygon points={hexPoints(7)} fill={`url(#${gradId})`} stroke={c1} strokeWidth={1} />}
+      {kind === 'mcp-client' && <rect x={-7} y={-5} width={14} height={10} rx={2} fill={`url(#${gradId})`} stroke={c1} strokeWidth={1} />}
+      {kind === 'mcp-server' && <polygon points={diamondPoints(7)} fill={`url(#${gradId})`} stroke={c1} strokeWidth={1} />}
+      {kind === 'agent' && <circle r={6} fill={`url(#${gradId})`} stroke={c1} strokeWidth={1} />}
     </svg>
   );
 }
